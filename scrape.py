@@ -9,6 +9,7 @@ import random
 import os.path
 import os
 import webbrowser
+import requests
 
 ipgeo_key = '8bcd904869914aa786cfc56de192e33c'
 
@@ -33,8 +34,9 @@ def MakeRandomString():
 class Http:
     def __init__(self):
         self.origin_url = "https://www.eichholtz.com/en/collection/new/new-arrivals.html"
-        self.temp_json = {}
         self.temp_filename = MakeRandomString() + ".json"
+        json.dump({'indv-html': []}, open(self.temp_filename, 'w'), indent=4)
+        self.temp_json = {'indv-html': []}
         json.dump({'indv-html': []},
                   open(f"./{self.temp_filename}", 'w'), indent=4)
         USER_AGENT = UserAgent()
@@ -81,55 +83,42 @@ class Http:
         print("finished and updated concat. now returning.")
         return i_char
 
-    def ReloadTempJSON(self):
-        print('reloading the temp')
-        x = json.load(open(self.temp_filename, 'r'))
-        self.temp_json = x
-        return x
-
-    def BlankTempDataInsertion(self):
-        print('could not find temp for some reason. building...')
-        json.dump({"indv-html": []},
-                  open(f"./{self.temp_filename}", 'w'), indent=4)
-        print("finished building temp. basic data added.")
-
-    def AppendTempFile(self, JSON_OBJ):
-        print('appending to temp')
-        print('testing if file')
-        if not os.path.isfile(f"./{self.temp_filename}"):
-            print('no file found.. adding..')
-            self.BlankTempDataInsertion()
-            print('insertion method has ran.')
-        print('dumping data to temp..')
-        json.dump(JSON_OBJ, open(self.temp_filename, 'w'))
-        print('finished dumping..')
-
-    def GrabPagesOfProductInfo(self, si, pages=1):
+    def GrabPagesOfProductInfo(self, pages):
         print('running "for" loop for every page...')
         ua = random.choice((self.uas))
         for i in range(pages):
             print('going through loop no. %s' % i)
             if i == 0:
+                config = json.load(open('./config.json', 'r'))
+                config['pages_scraped'] += 1
+                json.dump(config, open("./config.json", 'w'))
                 print(f'GET REQUEST TO {self.origin_url}')
-                req = urllib.request.Request(url=self.origin, headers={"user-agent": ua})
+                req = urllib.request.Request(url=self.origin_url, headers={"user-agent": ua})
                 html = urllib.request.urlopen(req).read().decode('utf-8') # decode string into writeable format (utf-8)
                 print("Assigned html variable to site html")
-                return self.AppendTempFile(self.temp_json['indv-html'].append(html))
+
+                data = json.load(open(f'./{self.temp_filename}', 'r'))
+                data['indv-html'].append(html)
+                return json.dump(data, open(f'./{self.temp_filename}', 'w'), indent=4)
             else:
+                config = json.load(open('./config.json', 'r'))
+                config['pages_scraped'] += 1
+                json.dump(config, open("./config.json", 'w'))
                 self.UpdatePageOrigin()
                 print(f'GET REQUEST TO {self.origin_url}')
                 req = urllib.request.Request(
-                    url=self.origin, headers={"user-agent": ua})
+                    url=self.origin_url, headers={"user-agent": ua})
                 html = urllib.request.urlopen(req).read().decode(
                     'utf-8')  # decode string into writeable format (utf-8)
                 print("Assigned html variable to site html")
-                return self.AppendTempFile(self.temp_json['indv-html'].append(html))
-
-
+                data = json.load(open(f'./{self.temp_filename}', 'r'))
+                data['indv-html'].append(html)
+                return json.dump(data, open(f'./{self.temp_filename}', 'w'), indent=4)
+                
 def GetIPInfo():
-    req = urllib.request.Request(
-        f"https://api.ipgeolocation.io/ipgeo?apiKey={ipgeo_key}", headers={"Content-Type": "application/json"})
-    JSON = urllib.request.urlopen(req).read()
+    req = requests.get(
+        f"https://api.ipgeolocation.io/ipgeo?apiKey={ipgeo_key}")
+    JSON = req.json()
     return JSON
 
 def main():
@@ -143,6 +132,7 @@ def main():
         new_user_formatted = """When using this tool, all of your previous session data will be stored in this folder.
         My recommendation is to not delete the folder.
         Things like the amount of pages you have got products from will be stored.
+        What's great about the local database is that you will never get the same sku number twice!
 
         IMPORTANT:
 
@@ -153,4 +143,26 @@ def main():
         webbrowser.open("https://github.com/M3Horizun/EicholtzProductScraper")
     else:
         new_user_formatted = "Welcome back... No need to tell you the details."
+    print(colorama.Fore.GREEN + f"""No Syntax Running Issues!
+    IP: {IPInfo['ip']},
+    Internet Servide Provider: {IPInfo['isp']},
+    Current Time: {datetime.now()}
+    Country: {IPInfo['country_name']}
+    """)
     print(colorama.Fore.CYAN + new_user_formatted)
+    _ = colorama.Fore.RESET
+
+    config = json.load(open('./config.json', 'r'))
+    config['new_user'] = False
+    json.dump(config, open("./config.json", 'w'))
+
+    page_amounts = int(input("""Enter in the amount of pages you would like to scrape. 
+    I don't recommend doing more than 5.
+    """))
+
+    http = Http()
+    http.GrabPagesOfProductInfo(4)
+
+if __name__ == '__main__':
+    main()
+    
