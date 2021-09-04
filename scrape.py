@@ -1,15 +1,14 @@
 import urllib.request
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup as BS
 from fake_useragent import UserAgent
 import json
 import colorama
 from datetime import datetime
 import string
 import random
-import os.path
-import os
 import webbrowser
 import requests
+import time
 
 ipgeo_key = '8bcd904869914aa786cfc56de192e33c'
 
@@ -40,10 +39,11 @@ class Http:
         json.dump({'indv-html': []},
                   open(f"./{self.temp_filename}", 'w'), indent=4)
         USER_AGENT = UserAgent()
-        self.uas = None# User agents
+        self.uas = None  # User agents
         config = json.load(open('./config.json', 'r'))
-        
-        if len(config['user-agents']) < 1: # 0 User agents are inserted as this point.
+
+        # 0 User agents are inserted as this point.
+        if len(config['user-agents']) < 1:
             print("""oops.. not enough user agents found..\nuser agents are used for http requests, some websites block requests with weird looking user-agents.\ni like to use firefox useragent's
             because why not.""")
             print("inserting 200 user agents")
@@ -55,7 +55,6 @@ class Http:
         else:
             self.uas = config['user-agents']
 
-
     def UpdatePageOrigin(self, by_no=1):
         try:
             int(self.origin_url[-1])
@@ -64,7 +63,7 @@ class Http:
             self.origin_url += '?p=2'
             print("finished.. returning data")
             return 2
-        
+
         print('page no. is not 0 diverting methods..')
 
         new_page_no = None
@@ -93,8 +92,10 @@ class Http:
                 config['pages_scraped'] += 1
                 json.dump(config, open("./config.json", 'w'))
                 print(f'GET REQUEST TO {self.origin_url}')
-                req = urllib.request.Request(url=self.origin_url, headers={"user-agent": ua})
-                html = urllib.request.urlopen(req).read().decode('utf-8') # decode string into writeable format (utf-8)
+                req = urllib.request.Request(
+                    url=self.origin_url, headers={"user-agent": ua})
+                html = urllib.request.urlopen(req).read().decode(
+                    'utf-8')  # decode string into writeable format (utf-8)
                 print("Assigned html variable to site html")
 
                 data = json.load(open(f'./{self.temp_filename}', 'r'))
@@ -114,12 +115,57 @@ class Http:
                 data = json.load(open(f'./{self.temp_filename}', 'r'))
                 data['indv-html'].append(html)
                 return json.dump(data, open(f'./{self.temp_filename}', 'w'), indent=4)
-                
+
+
 def GetIPInfo():
     req = requests.get(
         f"https://api.ipgeolocation.io/ipgeo?apiKey={ipgeo_key}")
     JSON = req.json()
     return JSON
+
+class HtmlParser:
+    def __init__(self, html, page_info):
+        self.html = html
+        self.page_info = page_info
+
+    def GetProducts(self):
+        soup = BS(self.html, "lxml")
+        ol = soup.find(
+            'ol', {"class": self.page_info['product-div'][1]})
+        product_items = ol.find_all('li')
+        product_dicts = []
+        for product_item in product_items:
+            print("__________________")
+            sp = self.page_info['single-product'][0]
+            info = {}
+            # Label Div
+            md = product_item.find_all('div')[0]
+            label = md.find('div', {"class": sp['label'][1]})
+            label_a = label.find_all('a')[0]
+            info['product-url'] = label_a['href']
+            print("Product URL: " + label_a['href'])
+            label_a_span = label_a.find_all('a')[0]
+            info['img_url'] = label_a_span['src']
+            print("Image URL: " + label_a_span['src'])
+
+            #  Details bottom div.
+            product_details = product_item.find_all('div')[1]
+            sku = product_details.find_all(
+                'div', {"class": sp['product-details-sku'][1]})[0]
+            sku = sku.string
+            info['sku'] = sku
+            print("SKU: " + sku)
+
+            name_container = product_details.find_all(sp['product-details-name-container'][0],
+                                            {f"{sp['product-details-name-container'][2]}": 
+                                            sp['product-details-name-container'][1]})
+            name_a = name_container.find_all('a')[0]
+
+            print(name_a.string)
+
+            info['name'] = name_a.string
+
+            product_dicts.append(info)
 
 def main():
     colorama.init()
@@ -163,6 +209,21 @@ def main():
     http = Http()
     http.GrabPagesOfProductInfo(4)
 
+    print("All requests have been made, now getting the information.")
+    print("In around 3 seconds data will appear, nothing bad is happening..")
+
+    time.sleep(2)
+
+    temp_filename = http.temp_filename
+
+    pages = json.load(open(temp_filename, 'r'))['indv-html']
+
+    product_info = json.load(open('./product-info.json', 'r'))
+
+    for page in pages:
+        parser = HtmlParser(page, product_info)
+        parser.GetProducts()
+
+
 if __name__ == '__main__':
     main()
-    
