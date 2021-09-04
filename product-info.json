@@ -1,0 +1,46 @@
+{
+    "product-attributes": [
+        "li",
+        "item product product-item",
+        "class"
+    ],
+    "product-div": [
+        "ol",
+        "products list items product-items",
+        "class"
+    ],
+    "single-product": [
+        {
+            "label": [
+                "div",
+                "label-container",
+                "class"
+            ],
+            "main-container": [
+                "div",
+                "product-item-info",
+                "class"
+            ],
+            "product-details": [
+                "div",
+                "product details product-item-details",
+                "class"
+            ],
+            "product-details-name-container": [
+                "strong",
+                "product name product-item-name",
+                "class"
+            ],
+            "product-details-name-container-name": [
+                "a",
+                "product-item-link",
+                "class"
+            ],
+            "product-details-sku": [
+                "div",
+                "product-sku-value",
+                "class"
+            ]
+        }
+    ]
+}
