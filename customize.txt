@@ -1,0 +1,2 @@
+# Welcome to customize.txt
+# Please visit https://github.com/M3Horizun/EicholtzProductScraper/blob/main/guide.md 

@@ -13,6 +13,7 @@ import os
 import threading
 import xlsxwriter as ex
 import os.path
+import progressbar
 
 ipgeo_key = '8bcd904869914aa786cfc56de192e33c'
 
@@ -43,21 +44,17 @@ class Http:
         json.dump({'indv-html': []},
                   open(f"./{self.temp_filename}", 'w'), indent=4)
         USER_AGENT = UserAgent()
-        self.uas = None  # User agents
+        self.uas = []  # User agents
         config = json.load(open('./config.json', 'r'))
 
         # 0 User agents are inserted as this point.
         if len(config['user-agents']) < 1:
-            print("""oops.. not enough user agents found..\nuser agents are used for http requests, some websites block requests with weird looking user-agents.\ni like to use firefox useragent's
-            because why not.""")
-            print("inserting 200 user agents")
-            self.uas = []
-            for i in range(1, 200):
-                cua = USER_AGENT.firefox
-                print(f"adding user agent no. {i} ({str(cua)})")
-                self.uas.append(cua)
+            print("Fetching user-agents, this will only happen once..")
+            for i in progressbar.progressbar(range(200)):
+                temp_ua = USER_AGENT.firefox
+                self.uas.append(temp_ua)
+                config['user-agents'].append(temp_ua)
                 time.sleep(0.05)
-            config['user-agents'].append(self.uas)
             config = json.dump(config, open('./config.json', 'w'), indent=4)
         else:
             self.uas = config['user-agents']
@@ -99,10 +96,7 @@ class Http:
                 config['pages_scraped'] += 1
                 json.dump(config, open("./config.json", 'w'))
                 print(f'GET REQUEST TO {self.origin_url}')
-                req = urllib.request.Request(
-                    url=self.origin_url, headers={"user-agent": ua})
-                html = urllib.request.urlopen(req).read().decode(
-                    'utf-8')  # decode string into writeable format (utf-8)
+                html = requests.get(self.origin_url, headers={"user-agent": ua}).content.decode('utf-8')
                 print("Assigned html variable to site html")
 
                 data = json.load(open(f'./{self.temp_filename}', 'r'))
@@ -111,7 +105,7 @@ class Http:
             else:
                 config = json.load(open('./config.json', 'r'))
                 config['pages_scraped'] += 1
-                json.dump(config, open("./config.json", 'w'))
+                json.dump(config, open("./config.json", 'w'), indent=4)
                 self.UpdatePageOrigin()
                 print(f'GET REQUEST TO {self.origin_url}')
                 req = urllib.request.Request(
@@ -235,11 +229,18 @@ class Excel:
                 options[option['name']] = option['value']
         
         try:
-            os.mkdir("EXCEL")
+            user_customs = Customize()
+            if user_customs.config['EXPORT_INTO_SUBDIR'] == 'no':
+                os.mkdir("./EXCEL")
         except:
             return print(f"There seems to already be a folder called excel inside of {product_folder_name}.\bMaybe try deleting that folder.")
 
-        workbook = ex.Workbook(f"{product_folder_name}/EXCEL/products.xlsx")
+        if product_folder_name == '':
+            filepath = f"./EXCEL/products.xlsx"
+        else:
+            filepath = f"{product_folder_name}/EXCEL/products.xlsx"
+
+        workbook = ex.Workbook(filepath)
         ws = workbook.add_worksheet()
 
         bold_cell = workbook.add_format({"bold": True})
@@ -250,8 +251,8 @@ class Excel:
             # Write categories
             ws.write(0, 0, "name", bold_cell)
             ws.write(0, 1, "sku", bold_cell)
-            ws.write(0, 3, "image url", bold_cell),
-            ws.write(0, 4, "product url", bold_cell)
+            ws.write(0, 2, "image url", bold_cell),
+            ws.write(0, 3, "product url", bold_cell)
 
         else:
             row, col = 0, 0  
@@ -260,24 +261,41 @@ class Excel:
             ws.write(row, col, product['name'])
             ws.write(row, col+1, product['sku'])
             ws.write(row, col+2, product['img_url'])
-            ws.write(row, col+3, product['product_url'])
+            ws.write(row, col+3, product['product-url'])
+            row += 1
 
         print("Closing notebook!")
 
-        ws.close()
+        workbook.close()
 
 class Customize:
     def __init__(self):
         if not os.path.exists("./customize.txt"):
             with open('./customize.txt', 'w') as f:
-                f.write('''# This is the customize file.
-                # This is where you can tweak the settings and performance of the program.
-                # Everytime I use a "#" at the start of the line, the program ignores the line
-                # If I didn't it would read the line and tweak settings.
-                # This program is highly customizeable. 
-                # Please visit https://github.com/M3Horizun/EicholtzProductScraper/guide.md
-                # Version 0.0.1 by Jaxon Best
+                f.write('''# Welcome to customize.txt
+# Please visit https://github.com/M3Horizun/EicholtzProductScraper/blob/main/guide.md
                 ''')
+        self.config = {
+            "EXPORT_TO_EXCEL": 'yes',
+            "EXPORT_INTO_SUBDIR": 'yes',
+            "MUlTI_THREAD_IMG_DOWNLOAD": 'yes',
+            "DISBALE_USER_AGENT": 'no',
+            "DO_EXPORT": 'yes',
+            "USE_EXCEL_LABELING": 'yes',
+            "DELETE_TEMP_FILES": 'yes'
+        }
+        lines = open('./customize.txt', 'r').readlines()
+        valid_commands = ['EXPORT_TO_EXCEL', "EXPORT_INTO_SUBDIR", "MULTI_THREAD_IMG_DOWNLOAD",
+        "DISABLE_USER_AGENT", "DO_EXPORT", "USE_EXCEL_LABELING", "DELETE_TEMP_FILES"]
+        used_commands = [] # All the custom users commands
+        for line in lines:
+            if not line.startswith("#"):
+                command, res = line.split(" ")
+                res = res.lower()
+                command = command.upper()
+                if command in valid_commands and res in ['yes', 'no', 'true', 'false']:
+                    self.config[command] = res           
+                
 
 def main():
     colorama.init()
@@ -316,6 +334,8 @@ Country: {IPInfo['country_name']}
 
     page_amounts = input("""Press ENTER to start scraping..
     """)
+    
+    custom = Customize()
 
     http = Http()
     http.GrabPagesOfProductInfo(4)
@@ -336,9 +356,30 @@ Country: {IPInfo['country_name']}
 
     product_folder_name = f"eiholtz.{datetime.now().strftime(r'%d.%m.%Y').replace(' ', '')}"
 
-    parser.CompileAllProducts(product_folder_name, parser.all_products)
+    if custom.config['EXPORT_INTO_SUBDIR'] == 'yes':
+        parser.CompileAllProducts(product_folder_name, parser.all_products)
+    
 
 
+    if custom.config['EXPORT_INTO_SUBDIR'] == 'no':
+        excel_folder = ''
+        if custom.config['EXPORT_TO_EXCEL']:
+            os.mkdir(excel_folder)
+    elif custom.config['EXPORT_INTO_SUBDIR'] == 'yes':
+        if custom.config['EXPORT_TO_EXCEL']:
+            os.mkdir(product_folder_name + "/EXCEL")
+        excel_folder = product_folder_name 
+
+    if custom.config['EXPORT_TO_EXCEL']:
+        Excel().CreateNotebook(parser.all_products, None, excel_folder)
+
+    if custom.config['DELETE_TEMP_FILES'] == 'yes':
+        print("Deleting TMP files")
+        try:
+            os.remove(http.temp_filename)
+            print("removed temp file")
+        except:
+            print("couldn't find tmp file.")
 
 
 if __name__ == '__main__':

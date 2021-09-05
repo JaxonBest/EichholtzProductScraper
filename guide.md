@@ -41,10 +41,10 @@ EXPORT_TO_EXCEL yes
 <h4>Step #4 (Optional). Take a short read through the all of the possible commands below</h4>
 
 
-<article>**The keyword means what response it takes in for example. My command -> [EXPORT_TO_EXCEL **yes**]</article>
+<article>The keyword means what response it takes in for example. My command -> [EXPORT_TO_EXCEL yes]</article>
 
 
-<article>In that case **yes** would be the keyword.</article>
+<article>In that case yes would be the keyword.</article>
 
 
 ```
@@ -60,4 +60,6 @@ DISABLE_USER_AGENT | Keywords (yes, no) | Default(no) | User-agents will spoof y
 DO_EXPORT | Keywords (yes, no) | Default(yes) | All the output is already in the terminal, so if you don't want to generate an output. It's optional.
 
 USE_EXCEL_LABELING | keywords (yes, no) | Default(yes) | Labels each field like sku, name, url etc. It requires you to have EXPORT_TO_EXCEL enabled.
+
+DELETE_TEMP_FILES | Keywords (yes, no) | Default(yes) | When the program runs it generated a random .json file containing all the page elements. This can contain over 10,000 lines of elements. Once program has ended this file will delete.
 ```
