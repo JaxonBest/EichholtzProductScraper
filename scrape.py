@@ -217,28 +217,28 @@ def main():
     print(colorama.Fore.GREEN + "Eichholtz Product Info Scraper.")
     print(colorama.Fore.LIGHTYELLOW_EX + "Version: 0.0.1 By Jaxon Best")
     IPInfo = GetIPInfo()
-    User_Data = json.load(open("./config.json"))
+    User_Data = json.load(open("./config.json", 'r'))
     new_user_formatted = ''
     if User_Data['new_user']:
         new_user_formatted = """When using this tool, all of your previous session data will be stored in this folder.
-        My recommendation is to not delete the folder.
-        Things like the amount of pages you have got products from will be stored.
-        What's great about the local database is that you will never get the same sku number twice!
+My recommendation is to not delete the folder.
+Things like the amount of pages you have got products from will be stored.
+What's great about the local database is that you will never get the same sku number twice!
 
-        IMPORTANT:
+IMPORTANT:
 
-        Make sure this program is in it's own folder with config.json & product-info.json.
-        Files may be generated when running this program. And some may stay if needed.
-        All of the products will be stored in a extra folder. It's optional to also download images..
+Make sure this program is in it's own folder with config.json & product-info.json.
+Files may be generated when running this program. And some may stay if needed.
+All of the products will be stored in a extra folder. It's optional to also download images..
         """
         webbrowser.open("https://github.com/M3Horizun/EicholtzProductScraper")
     else:
         new_user_formatted = "Welcome back... No need to tell you the details."
     print(colorama.Fore.GREEN + f"""No Syntax Running Issues!
-    IP: {IPInfo['ip']},
-    Internet Servide Provider: {IPInfo['isp']},
-    Current Time: {datetime.now()}
-    Country: {IPInfo['country_name']}
+IP: {IPInfo['ip']},
+Internet Servide Provider: {IPInfo['isp']},
+Current Time: {datetime.now()}
+Country: {IPInfo['country_name']}
     """)
     print(colorama.Fore.CYAN + new_user_formatted)
     _ = colorama.Fore.RESET
