@@ -11,6 +11,8 @@ import requests
 import time
 import os
 import threading
+import xlsxwriter as ex
+import os.path
 
 ipgeo_key = '8bcd904869914aa786cfc56de192e33c'
 
@@ -22,7 +24,7 @@ class Data:
 
 
 def MakeRandomString():
-    x = string.ascii_letters + "1234567890"
+    x = string.ascii_letters +  "1234567890"
     length = random.randint(10, 25)
     result = ''
     for i in range(length):
@@ -212,6 +214,71 @@ Product Description: Hopefully will be added later...
         config['sku-log'].append(p['sku'] for p in self.all_products)
         json.dump(config, open('./config.json', 'w'))
 
+
+
+class Excel:
+    def __init__(self):
+        self.workbook = None
+        self.info = {}
+
+    def CreateNotebook(self, products, custom_format_options=None, product_folder_name=None):
+        if product_folder_name is None:
+            raise Exception("CreateNotebook not supplied with the product folder name")
+        
+        print("Creating notebook..")
+
+        options = {"human-readable": True, "dear-exportable": True, "category_guidance_fields": True}
+        
+        if custom_format_options is not None:
+        
+            for option in custom_format_options:
+                options[option['name']] = option['value']
+        
+        try:
+            os.mkdir("EXCEL")
+        except:
+            return print(f"There seems to already be a folder called excel inside of {product_folder_name}.\bMaybe try deleting that folder.")
+
+        workbook = ex.Workbook(f"{product_folder_name}/EXCEL/products.xlsx")
+        ws = workbook.add_worksheet()
+
+        bold_cell = workbook.add_format({"bold": True})
+
+        if options['category_guidance_fields']:
+            row, col = 1, 0
+
+            # Write categories
+            ws.write(0, 0, "name", bold_cell)
+            ws.write(0, 1, "sku", bold_cell)
+            ws.write(0, 3, "image url", bold_cell),
+            ws.write(0, 4, "product url", bold_cell)
+
+        else:
+            row, col = 0, 0  
+
+        for product in products:
+            ws.write(row, col, product['name'])
+            ws.write(row, col+1, product['sku'])
+            ws.write(row, col+2, product['img_url'])
+            ws.write(row, col+3, product['product_url'])
+
+        print("Closing notebook!")
+
+        ws.close()
+
+class Customize:
+    def __init__(self):
+        if not os.path.exists("./customize.txt"):
+            with open('./customize.txt', 'w') as f:
+                f.write('''# This is the customize file.
+                # This is where you can tweak the settings and performance of the program.
+                # Everytime I use a "#" at the start of the line, the program ignores the line
+                # If I didn't it would read the line and tweak settings.
+                # This program is highly customizeable. 
+                # Please visit https://github.com/M3Horizun/EicholtzProductScraper/guide.md
+                # Version 0.0.1 by Jaxon Best
+                ''')
+
 def main():
     colorama.init()
     print(colorama.Fore.GREEN + "Eichholtz Product Info Scraper.")
@@ -268,6 +335,7 @@ Country: {IPInfo['country_name']}
         pages_of_products.append(parser.GetProducts(page, product_info))
 
     product_folder_name = f"eiholtz.{datetime.now().strftime(r'%d.%m.%Y').replace(' ', '')}"
+
     parser.CompileAllProducts(product_folder_name, parser.all_products)
 
 
