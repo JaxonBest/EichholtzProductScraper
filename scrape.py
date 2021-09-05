@@ -9,6 +9,8 @@ import random
 import webbrowser
 import requests
 import time
+import os
+import threading
 
 ipgeo_key = '8bcd904869914aa786cfc56de192e33c'
 
@@ -52,6 +54,9 @@ class Http:
                 cua = USER_AGENT.firefox
                 print(f"adding user agent no. {i} ({str(cua)})")
                 self.uas.append(cua)
+                time.sleep(0.05)
+            config['user-agents'].append(self.uas)
+            config = json.dump(config, open('./config.json', 'w'), indent=4)
         else:
             self.uas = config['user-agents']
 
@@ -116,7 +121,6 @@ class Http:
                 data['indv-html'].append(html)
                 return json.dump(data, open(f'./{self.temp_filename}', 'w'), indent=4)
 
-
 def GetIPInfo():
     req = requests.get(
         f"https://api.ipgeolocation.io/ipgeo?apiKey={ipgeo_key}")
@@ -124,19 +128,18 @@ def GetIPInfo():
     return JSON
 
 class HtmlParser:
-    def __init__(self, html, page_info):
-        self.html = html
-        self.page_info = page_info
+    def __init__(self):
+        self.all_products = None
 
-    def GetProducts(self):
-        soup = BS(self.html, "lxml")
+    def GetProducts(self, html, page_info):
+        soup = BS(html, "lxml")
         ol = soup.find(
-            'ol', {"class": self.page_info['product-div'][1]})
+            'ol', {"class": page_info['product-div'][1]})
         product_items = ol.find_all('li')
         product_dicts = []
         for product_item in product_items:
             print("__________________")
-            sp = self.page_info['single-product'][0]
+            sp = page_info['single-product'][0]
             info = {}
             # Label Div
             md = product_item.find_all('div')[0]
@@ -144,28 +147,70 @@ class HtmlParser:
             label_a = label.find_all('a')[0]
             info['product-url'] = label_a['href']
             print("Product URL: " + label_a['href'])
-            label_a_span = label_a.find_all('a')[0]
-            info['img_url'] = label_a_span['src']
-            print("Image URL: " + label_a_span['src'])
+            label_a_span = label_a.find_all('span')[0]
+            info['img_url'] = label_a_span.img['src']
+            print("Image URL: " + label_a_span.img['src'])
 
             #  Details bottom div.
-            product_details = product_item.find_all('div')[1]
-            sku = product_details.find_all(
-                'div', {"class": sp['product-details-sku'][1]})[0]
+            product_details = product_item.find(
+                'div', {"class": "product details product-item-details"})
+            sku = product_details.find(
+                'div', {"class": f"{sp['product-details-sku'][1]}"})
             sku = sku.string
             info['sku'] = sku
             print("SKU: " + sku)
 
-            name_container = product_details.find_all(sp['product-details-name-container'][0],
+            name_container = product_details.find(sp['product-details-name-container'][0],
                                             {f"{sp['product-details-name-container'][2]}": 
                                             sp['product-details-name-container'][1]})
-            name_a = name_container.find_all('a')[0]
 
+            # name_a = name_container.find_all('a', {"class": "product-item-link"})[0]
+            name_a = name_container.find('a', {"class": "product-item-link"})
             print(name_a.string)
 
             info['name'] = name_a.string
 
             product_dicts.append(info)
+            
+        self.all_products = product_dicts
+        return product_dicts
+
+    def CompileAllProducts(self, folder_name, products):
+        os.mkdir(folder_name)
+        global images_downloaded
+
+        def DownloadImage(p: dict):
+            img_bytes = requests.get(p['img_url']).content
+            with open(f"./{folder_name}/{p['name'].replace(' ', '')}/product-image.png", 'wb') as IF:
+                IF.write(img_bytes)
+            print("Downloaded image for %s" % p['name'].replace(' ', ''))
+        threads = []
+        for product in products:
+            try:
+                os.mkdir(f"./{folder_name}/{product['name'].replace(' ', '')}")
+            except:
+                pass
+            threads.append(threading.Thread(target = DownloadImage, kwargs={"p": product}))
+            with open(f"./{folder_name}/{product['name'].replace(' ', '')}/information.txt", 'w') as f:
+                f.write(f"""Name: {product['name']}
+Product URL: {product['product-url']}
+Images can be found in the same folder, but here is the link: {product['img_url']}
+SKU: {product['sku']}
+Product Description: Hopefully will be added later...
+                """)
+
+        for i in range(len(threads)):
+            threads[i].start()
+
+        for i in range(len(threads)):
+            threads[i].join()
+
+    def log_all_sku(self):
+        if self.all_products is None:
+            return
+        config = json.load(open("./config.json", 'r'))
+        config['sku-log'].append(p['sku'] for p in self.all_products)
+        json.dump(config, open('./config.json', 'w'))
 
 def main():
     colorama.init()
@@ -202,17 +247,13 @@ def main():
     config['new_user'] = False
     json.dump(config, open("./config.json", 'w'))
 
-    page_amounts = int(input("""Enter in the amount of pages you would like to scrape. 
-    I don't recommend doing more than 5.
-    """))
+    page_amounts = input("""Press ENTER to start scraping..
+    """)
 
     http = Http()
     http.GrabPagesOfProductInfo(4)
 
     print("All requests have been made, now getting the information.")
-    print("In around 3 seconds data will appear, nothing bad is happening..")
-
-    time.sleep(2)
 
     temp_filename = http.temp_filename
 
@@ -220,9 +261,16 @@ def main():
 
     product_info = json.load(open('./product-info.json', 'r'))
 
+    pages_of_products = []
+    parser = HtmlParser()
+
     for page in pages:
-        parser = HtmlParser(page, product_info)
-        parser.GetProducts()
+        pages_of_products.append(parser.GetProducts(page, product_info))
+
+    product_folder_name = f"eiholtz.{datetime.now().strftime(r'%d.%m.%Y').replace(' ', '')}"
+    parser.CompileAllProducts(product_folder_name, parser.all_products)
+
+
 
 
 if __name__ == '__main__':
