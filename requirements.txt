@@ -1,0 +1,6 @@
+bs4 
+fake_useragent
+colorama
+requests
+xlsxwriter
+progressbar
