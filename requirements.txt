@@ -1,5 +1,5 @@
 bs4 
-fake_useragent
+fake-useragent
 colorama
 requests
 xlsxwriter
